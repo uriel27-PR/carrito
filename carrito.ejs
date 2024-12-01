@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Carrito de Compras - VitalFit</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+    <style>
+#cart-modal {
+    display: none;
+    position: fixed;
+    z-index: 1001;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.5);
+    overflow: auto;}
+.modal-content {
+    background-color: #fefefe;
+    margin: 5% auto;
+    padding: 20px;
+    border: 1px solid #888;
+    width: 80%;
+    max-width: 800px;
+    position: relative;}
+/* Estilos para el encabezado del carrito */
+.cart-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 20px;}
+.cart-header i {
+    font-size: 24px;
+    margin-right: 10px;
+    color: var(--primary-color);}
+.cart-header h2 {
+    color: #000000;
+    margin: 0;
+    font-size: 24px;}
+/* Estilos para la tabla del carrito */
+#cart-items {
+    width: 100%;
+    margin: 20px 0;}
+#cart-items table {
+    width: 100%;
+    border-collapse: collapse;}
+#cart-items th {
+    background-color: #f2f2f2;
+    color: #000000;
+    font-weight: bold;
+    padding: 12px;
+    text-align: left;
+    border-bottom: 2px solid #ddd;}
+#cart-items td {
+    padding: 12px;
+    border-bottom: 1px solid #ddd;
+    color: #000000;}
+/* Estilos para el botón de vaciar carrito */
+.btn-clear {
+    background-color: #ffffff;
+    color: var(--primary-color);
+    border: 1px solid var(--primary-color);
+    padding: 8px 12px;
+    cursor: pointer;
+    float: right;
+    margin-bottom: 10px;
+    border-radius: 4px;
+    transition: background-color 0.3s, color 0.3s;
+    display: flex;
+    align-items: center;
+    gap: 5px;}
+.btn-clear i {
+    font-size: 16px;}
+.btn-clear:hover {
+    background-color: var(--primary-color);
+    color: #ffffff;}
+/* Estilos para el total y botón de pago */
+#cart-total {
+    color: #000000;
+    font-size: 18px;
+    font-weight: bold;
+    text-align: right;
+    margin: 20px 0;}
+.btn-primary {
+    width: 100%;
+    padding: 12px;
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 16px;}
+/* Estilos para el botón de cerrar */
+.close {
+    color: #aaa;
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;}
+.close:hover {
+    color: #000;}
+/* Estilos para los campos de cantidad */
+.quantity-input {
+    width: 50px;
+    padding: 5px;
+    text-align: center;
+    border: 1px solid #ddd;
+    border-radius: 4px;}
+/* Estilos para el botón de eliminar item */
+.remove-item {
+    color: #ff0000;
+    cursor: pointer;
+    background: none;
+    border: none;
+    font-size: 18px;
+    padding: 5px;}
+.remove-item:hover {
+    color: #cc0000;}
+    </style>
+</head>
+<body>
+    <div class="cart-container">
+        <div class="modal-content">
+            <div class="cart-header">
+                <i class="fas fa-shopping-cart"></i>
+                <h2>Carrito de Compras</h2>
+                <span class="close">&times;</span>
+            </div>
+
+            <div class="btn-clear">
+                <i class="fas fa-trash"></i>
+                Vaciar Carrito
+            </div>
+
+            <div id="cart-items">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Producto</th>
+                            <th>Precio</th>
+                            <th>Cantidad</th>
+                            <th>Total</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="cart-table-body">
+                        <!-- Los productos del carrito se insertarán aquí dinámicamente -->
+                    </tbody>
+                </table>
+            </div>
+
+            <div id="cart-total">
+                Total: $<span id="total-amount">0.00</span>
+            </div>
+
+            <button class="btn-primary">Proceder al Pago</button>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+    const cartTableBody = document.getElementById('cart-table-body');
+    const totalAmountSpan = document.getElementById('total-amount');
+    const btnClearCart = document.querySelector('.btn-clear');
+    const btnProceedToPay = document.querySelector('.btn-primary');
+    const closeButton = document.querySelector('.close');
+
+    // Función para cargar productos del carrito
+    async function loadCartItems() {
+        try {
+            const usuarioId = obtenerIdUsuarioActual(); // Implementa esta función
+            const response = await fetch(`/carrito/${usuarioId}`);
+            const productos = await response.json();
+
+            cartTableBody.innerHTML = ''; // Limpiar tabla
+            let totalCarrito = 0;
+
+            productos.forEach(producto => {
+                const subtotal = producto.cantidad * producto.precio;
+                totalCarrito += subtotal;
+
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${producto.nombre}</td>
+                    <td>$${producto.precio.toFixed(2)}</td>
+                    <td>
+                        <input type="number" class="quantity-input" 
+                               value="${producto.cantidad}" 
+                               min="1" 
+                               data-carrito-id="${producto.id}">
+                    </td>
+                    <td>$${subtotal.toFixed(2)}</td>
+                    <td>
+                        <button class="remove-item" data-carrito-id="${producto.id}">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                `;
+                cartTableBody.appendChild(row);
+            });
+
+            totalAmountSpan.textContent = totalCarrito.toFixed(2);
+
+            // Agregar event listeners para cambios de cantidad
+            document.querySelectorAll('.quantity-input').forEach(input => {
+                input.addEventListener('change', actualizarCantidad);
+            });
+
+            // Agregar event listeners para eliminar productos
+            document.querySelectorAll('.remove-item').forEach(button => {
+                button.addEventListener('click', eliminarDelCarrito);
+            });
+        } catch (error) {
+            console.error('Error al cargar carrito:', error);
+        }
+    }
+
+    // Función para actualizar cantidad
+    async function actualizarCantidad(event) {
+        const carritoId = event.target.dataset.carritoId;
+        const nuevaCantidad = event.target.value;
+
+        try {
+            const response = await fetch(`/actualizar-carrito/${carritoId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ cantidad: nuevaCantidad })
+            });
+
+            if (response.ok) {
+                loadCartItems(); // Recargar carrito para actualizar totales
+            }
+        } catch (error) {
+            console.error('Error al actualizar cantidad:', error);
+        }
+    }
+
+    // Función para eliminar producto del carrito
+    async function eliminarDelCarrito(event) {
+        const carritoId = event.target.closest('.remove-item').dataset.carritoId;
+
+        try {
+            const response = await fetch(`/eliminar-carrito/${carritoId}`, {
+                method: 'DELETE'
+            });
+
+            if (response.ok) {
+                loadCartItems(); // Recargar carrito después de eliminar
+            }
+        } catch (error) {
+            console.error('Error al eliminar producto:', error);
+        }
+    }
+
+    // Vaciar carrito completamente
+    btnClearCart.addEventListener('click', async () => {
+        const usuarioId = obtenerIdUsuarioActual();
+        try {
+            const response = await fetch(`/vaciar-carrito/${usuarioId}`, {
+                method: 'DELETE'
+            });
+
+            if (response.ok) {
+                loadCartItems();
+            }
+        } catch (error) {
+            console.error('Error al vaciar carrito:', error);
+        }
+    });
+
+    // Cerrar modal o regresar a página anterior
+    closeButton.addEventListener('click', () => {
+        window.location.href = '/'; // O la página que desees
+    });
+
+    // Proceder al pago
+    btnProceedToPay.addEventListener('click', () => {
+        // Lógica para iniciar proceso de pago
+        window.location.href = '/checkout';
+    });
+
+    // Cargar items al iniciar
+    loadCartItems();
+});
+
+// Función para obtener ID de usuario actual (debes implementarla)
+function obtenerIdUsuarioActual() {
+    // Implementa lógica para obtener ID de usuario de sesión
+    return sessionStorage.getItem('usuarioId');
+}
+    </script>
+</body>
+</html>
